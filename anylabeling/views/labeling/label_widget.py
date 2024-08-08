@@ -841,6 +841,13 @@ class LabelingWidget(LabelDialog):
             icon=None,
             tip=self.tr("Upload Custom Attributes File"),
         )
+        upload_classes = action(
+            "导入Classes",
+            self.upload_classes,
+            None,
+            icon=None,
+            tip="导入YOLO classes",
+        )
         upload_yolo_hbb_annotation = action(
             self.tr("&Upload YOLO-Hbb Annotations"),
             lambda: self.upload_yolo_annotation("hbb"),
@@ -1265,6 +1272,7 @@ class LabelingWidget(LabelDialog):
             self.menus.upload,
             (
                 upload_attr_file,
+                upload_classes,
                 None,
                 upload_yolo_hbb_annotation,
                 upload_yolo_obb_annotation,
@@ -3490,6 +3498,46 @@ class LabelingWidget(LabelDialog):
                     self.unique_label_list.set_item_label(
                         item, label, rgb, LABEL_OPACITY
                     )
+
+    def upload_classes(self):
+        filter = "Attribute Files (*.txt);;All Files (*)"
+        file_path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            self.tr("Select a specific attributes file"),
+            "",
+            filter,
+        )
+        if not file_path:
+            QMessageBox.warning(
+                self,
+                self.tr("Warning"),
+                self.tr(
+                    "Upload failed! Please reselect a specific attributes file!"
+                ),
+                QMessageBox.Ok,
+            )
+            return
+        with open(file_path, "r", encoding="utf-8") as f:
+            lines = [line.strip() for line in f]
+            self._config['labels'] = lines
+            save_config(self._config)
+            QMessageBox.information(
+                self,
+                self.tr("Information"),
+                self.tr(
+                    "导入完成，重启应用即可生效"
+                ),
+                QMessageBox.Ok,
+            )
+            # self.attributes = json.load(f)
+            # for label in list(self.attributes.keys()):
+            #     if not self.unique_label_list.find_items_by_label(label):
+            #         item = self.unique_label_list.create_item_from_label(label)
+            #         self.unique_label_list.addItem(item)
+            #         rgb = self._get_rgb_by_label(label)
+            #         self.unique_label_list.set_item_label(
+            #             item, label, rgb, LABEL_OPACITY
+            #         )
 
     def upload_yolo_annotation(self, mode, _value=False, dirpath=None):
         if not self.may_continue():
