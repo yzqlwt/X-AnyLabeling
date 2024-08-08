@@ -2,8 +2,13 @@
 # vim: ft=python
 
 import sys
+from datetime import datetime
 
 sys.setrecursionlimit(5000)  # required on Windows
+# 获取当前日期和时间
+current_time = datetime.now().strftime("%Y%m%d_%H%M")
+# 定义应用程序名称
+app_name = f"X-AnyLabeling-CPU-{current_time}"
 
 a = Analysis(
     ['anylabeling/app.py'],
@@ -28,7 +33,7 @@ exe = EXE(
     a.binaries,
     a.zipfiles,
     a.datas,
-    name='X-AnyLabeling-CPU',
+    name=app_name,
     debug=False,
     strip=False,
     upx=False,

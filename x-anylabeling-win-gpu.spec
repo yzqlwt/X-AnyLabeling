@@ -14,9 +14,7 @@ a = Analysis(
         ('anylabeling/configs/*.yaml', 'anylabeling/configs'),
         ('anylabeling/views/labeling/widgets/auto_labeling/auto_labeling.ui', 'anylabeling/views/labeling/widgets/auto_labeling'),
         ('anylabeling/services/auto_labeling/configs/*.json', 'anylabeling/services/auto_labeling/configs'),
-        ('anylabeling/services/auto_labeling/configs/*.txt', 'anylabeling/services/auto_labeling/configs'),
-        ('C:/Users/18102/.conda/envs/x-anylabeling-gpu/Lib/site-packages/onnxruntime/capi/onnxruntime_providers_cuda.dll', 'onnxruntime/capi'),
-        ('C:/Users/18102/.conda/envs/x-anylabeling-gpu/Lib/site-packages/onnxruntime/capi/onnxruntime_providers_shared.dll', 'onnxruntime/capi')
+        ('anylabeling/services/auto_labeling/configs/*.txt', 'anylabeling/services/auto_labeling/configs')
     ],
     hiddenimports=[],
     hookspath=[],
