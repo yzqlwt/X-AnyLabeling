@@ -122,9 +122,17 @@ class LabelFile:
                 if self.image_dir:
                     image_path = osp.join(self.image_dir, data["imagePath"])
                 else:
+                    imagePath = data["imagePath"].replace('\\', '/')
                     image_path = osp.join(
-                        osp.dirname(filename), data["imagePath"]
+                        osp.dirname(filename), imagePath
                     )
+                    if not os.path.exists(image_path):
+                        image_path = osp.join(
+                            osp.dirname(filename), os.path.basename(imagePath)
+                        )
+                    if not os.path.exists(image_path):
+                        raise LabelFileError(f'文件不存在 {data["imagePath"]}\n 请把标注文件与图片放置在同一文件夹')
+
                 image_data = self.load_image_file(image_path)
             flags = data.get("flags") or {}
             image_path = data["imagePath"]
