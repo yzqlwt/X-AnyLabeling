@@ -4,7 +4,7 @@ opencv-contrib-python-headless>=4.7.0.72
 imgviz==1.5.0
 natsort==8.1.0
 termcolor==1.1.0
-onnx>=1.13.1
+onnx==1.13.1
 onnxruntime
 #onnxruntime-gpu>=1.16.0
 qimage2ndarray==1.10.0

@@ -848,6 +848,13 @@ class LabelingWidget(LabelDialog):
             icon=None,
             tip="导入YOLO classes",
         )
+        upload_voc_det_annotation2 = action(
+            "导入labelimg的标注",
+            lambda: self.upload_voc_annotation2("rectangle"),
+            None,
+            icon=None,
+            tip=self.tr("Upload Custom Pascal VOC Detection Annotations"),
+        )
         upload_yolo_hbb_annotation = action(
             self.tr("&Upload YOLO-Hbb Annotations"),
             lambda: self.upload_yolo_annotation("hbb"),
@@ -1273,6 +1280,7 @@ class LabelingWidget(LabelDialog):
             (
                 upload_attr_file,
                 upload_classes,
+                upload_voc_det_annotation2,
                 None,
                 upload_yolo_hbb_annotation,
                 upload_yolo_obb_annotation,
@@ -3688,6 +3696,110 @@ class LabelingWidget(LabelDialog):
                         output_file=output_file,
                         image_file=image_file,
                     )
+                # Update progress bar
+                progress_dialog.setValue(i)
+                if progress_dialog.wasCanceled():
+                    break
+            # Hide the progress dialog after processing is done
+            progress_dialog.close()
+            # update and refresh the current canvas
+            self.load_file(self.filename)
+
+        except Exception as e:
+            progress_dialog.close()
+            error_dialog = QMessageBox()
+            error_dialog.setIcon(QMessageBox.Critical)
+            error_dialog.setText(self.tr("Error occurred while uploading annotations."))
+            error_dialog.setInformativeText(str(e))
+            error_dialog.setWindowTitle(self.tr("Error"))
+            error_dialog.exec_()
+
+    def upload_voc_annotation2(self, mode, _value=False, dirpath=None):
+        if not self.may_continue():
+            return
+
+        if not self.filename:
+            QtWidgets.QMessageBox.warning(
+                self,
+                self.tr("Warning"),
+                self.tr("Please load an image folder before proceeding!"),
+                QtWidgets.QMessageBox.Ok,
+            )
+            return
+
+        default_open_dir_path = dirpath if dirpath else "."
+        if self.last_open_dir and osp.exists(self.last_open_dir):
+            default_open_dir_path = self.last_open_dir
+        else:
+            default_open_dir_path = (
+                osp.dirname(self.filename) if self.filename else "."
+            )
+        image_dir_path = osp.dirname(self.filename)
+        label_dir_path = QtWidgets.QFileDialog.getExistingDirectory(
+            self,
+            self.tr("%s - Open Directory") % __appname__,
+            default_open_dir_path,
+            QtWidgets.QFileDialog.ShowDirsOnly
+            | QtWidgets.QFileDialog.DontResolveSymlinks,
+        )
+
+        response = QtWidgets.QMessageBox.warning(
+            self,
+            self.tr("Current annotation will be lost"),
+            self.tr(
+                "You are going to upload new annotations to this task. Continue?"
+            ),
+            QtWidgets.QMessageBox.Cancel | QtWidgets.QMessageBox.Ok,
+        )
+
+        if response != QtWidgets.QMessageBox.Ok:
+            return
+
+        converter = LabelConverter(classes_file=self.classes_file)
+        image_file_list = os.listdir(image_dir_path)
+        label_file_list = os.listdir(label_dir_path)
+        image_file_list = [file for file in image_file_list if (file.endswith('.jpg') or file.endswith('.png'))]
+        label_file_list = [file for file in label_file_list if file.endswith('.xml')]
+        output_dir_path = image_dir_path
+        if self.output_dir:
+            output_dir_path = self.output_dir
+
+        progress_dialog = QProgressDialog(
+            self.tr("Uploading..."),
+            self.tr("Cancel"),
+            0,
+            len(image_file_list),
+        )
+        progress_dialog.setWindowModality(Qt.WindowModal)
+        progress_dialog.setWindowTitle(self.tr("Progress"))
+        progress_dialog.setStyleSheet("""
+        QProgressDialog QProgressBar {
+            border: 1px solid grey;
+            border-radius: 5px;
+            text-align: center;
+        }
+        QProgressDialog QProgressBar::chunk {
+            background-color: orange;
+        }
+        """)
+
+        try:
+            for i, image_filename in enumerate(image_file_list):
+                if image_filename.endswith(".json"):
+                    continue
+                label_filename = osp.splitext(image_filename)[0] + ".xml"
+                data_filename = osp.splitext(image_filename)[0] + ".json"
+                if label_filename not in label_file_list:
+                    continue
+                input_file = osp.join(label_dir_path, label_filename)
+                output_file = osp.join(output_dir_path, data_filename)
+                converter.voc_to_custom(
+                    input_file=input_file,
+                    output_file=output_file,
+                    image_filename=image_filename,
+                    mode=mode,
+                )
+
                 # Update progress bar
                 progress_dialog.setValue(i)
                 if progress_dialog.wasCanceled():
