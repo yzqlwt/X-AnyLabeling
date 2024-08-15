@@ -4,6 +4,7 @@ import math
 import json
 import os
 import os.path as osp
+import random
 import shutil
 import pathlib
 import cv2
@@ -14,6 +15,7 @@ from difflib import SequenceMatcher
 import imgviz
 import natsort
 import numpy as np
+import yaml
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import Qt, pyqtSlot
 from PyQt5.QtWidgets import (
@@ -938,6 +940,20 @@ class LabelingWidget(LabelDialog):
         )
 
         # Export
+        export_yolo_hbb_dataset = action(
+            self.tr("&导出YOLO-HBB数据集"),
+            lambda: self.export_yolo_dataset("hbb"),
+            None,
+            icon="format_yolo",
+            tip=self.tr("Export Custom YOLO Horizontal Bounding Boxes Annotations"),
+        )
+        export_yolo_obb_dataset = action(
+            self.tr("&导出YOLO-OBB数据集"),
+            lambda: self.export_yolo_dataset("obb"),
+            None,
+            icon="format_yolo",
+            tip=self.tr("Export Custom YOLO Oriented Bounding Boxes Annotations"),
+        )
         export_yolo_hbb_annotation = action(
             self.tr("&Export YOLO-Hbb Annotations"),
             lambda: self.export_yolo_annotation("hbb"),
@@ -1301,6 +1317,8 @@ class LabelingWidget(LabelDialog):
         utils.add_actions(
             self.menus.export,
             (
+                export_yolo_hbb_dataset,
+                export_yolo_obb_dataset,
                 export_yolo_hbb_annotation,
                 export_yolo_obb_annotation,
                 export_yolo_seg_annotation,
@@ -4273,6 +4291,212 @@ class LabelingWidget(LabelDialog):
         self.load_file(self.filename)
 
     # Export
+    def export_yolo_dataset(self, mode, _value=False, dirpath=None):
+        if not self.may_continue():
+            return
+
+        if not self.filename:
+            QtWidgets.QMessageBox.warning(
+                self,
+                self.tr("Warning"),
+                self.tr("Please load an image folder before proceeding!"),
+                QtWidgets.QMessageBox.Ok,
+            )
+            return
+
+        if mode == "pose":
+            filter = "Classes Files (*.yaml);;All Files (*)"
+            self.yaml_file, _ = QtWidgets.QFileDialog.getOpenFileName(
+                self,
+                self.tr("Select a specific yolo-pose config file"),
+                "",
+                filter,
+            )
+            if not self.yaml_file:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    self.tr("Warning"),
+                    self.tr("Please select a specific config file!"),
+                    QtWidgets.QMessageBox.Ok,
+                )
+                return
+            converter = LabelConverter(pose_cfg_file=self.yaml_file)
+        elif mode in ["hbb", "obb", "seg"]:
+            # filter = "Classes Files (*.txt);;All Files (*)"
+            # self.classes_file, _ = QtWidgets.QFileDialog.getOpenFileName(
+            #     self,
+            #     self.tr("Select a specific classes file"),
+            #     "",
+            #     filter,
+            # )
+            # if not self.classes_file:
+            #     QtWidgets.QMessageBox.warning(
+            #         self,
+            #         self.tr("Warning"),
+            #         self.tr("Please select a specific classes file!"),
+            #         QtWidgets.QMessageBox.Ok,
+            #     )
+            #     return
+            output_dir = QtWidgets.QFileDialog.getExistingDirectory(
+                self,
+                "%s - 选择导出目录" % __appname__,
+                osp.dirname(osp.dirname(self.filename)),
+                QtWidgets.QFileDialog.ShowDirsOnly
+                | QtWidgets.QFileDialog.DontResolveSymlinks,
+            )
+            output_dir = str(output_dir)
+            if not output_dir:
+                return
+            converter = LabelConverter()
+            converter.set_classes(self._config.get("labels"))
+
+        dialog = QtWidgets.QDialog()
+        dialog.setWindowTitle(self.tr("Options"))
+
+        layout = QVBoxLayout()
+
+        save_images_checkbox = QtWidgets.QCheckBox(self.tr("Save images?"))
+        save_images_checkbox.setChecked(False)
+        layout.addWidget(save_images_checkbox)
+
+        skip_empty_files_checkbox = QtWidgets.QCheckBox(self.tr("Skip empty labels?"))
+        skip_empty_files_checkbox.setChecked(False)
+        layout.addWidget(skip_empty_files_checkbox)
+
+        button_box = QtWidgets.QPushButton(self.tr("OK"))
+        button_box.clicked.connect(dialog.accept)
+        layout.addWidget(button_box)
+
+        dialog.setLayout(layout)
+        dialog.exec_()
+
+        save_images = save_images_checkbox.isChecked()
+        skip_empty_files = skip_empty_files_checkbox.isChecked()
+
+        label_dir_path = osp.dirname(self.filename)
+        if self.output_dir:
+            label_dir_path = self.output_dir
+        image_list = self.image_list
+        if not image_list:
+            image_list = [self.filename]
+        save_path = output_dir
+
+        if osp.exists(save_path) and len(os.listdir(save_path)) != 0:
+            response = QtWidgets.QMessageBox.warning(
+                self,
+                "输出文件夹不是空文件夹！",
+                "是否清空文件夹，并继续",
+                QtWidgets.QMessageBox.Cancel | QtWidgets.QMessageBox.Ok,
+            )
+
+            if response != QtWidgets.QMessageBox.Ok:
+                return
+            else:
+                shutil.rmtree(save_path)
+
+        progress_dialog = QProgressDialog(
+            self.tr("Exporting..."),
+            self.tr("Cancel"),
+            0,
+            len(image_list),
+        )
+        progress_dialog.setWindowModality(Qt.WindowModal)
+        progress_dialog.setWindowTitle(self.tr("Progress"))
+        progress_dialog.setStyleSheet("""
+        QProgressDialog QProgressBar {
+            border: 1px solid grey;
+            border-radius: 5px;
+            text-align: center;
+        }
+        QProgressDialog QProgressBar::chunk {
+            background-color: orange;
+        }
+        """)
+        for i in range(len(image_list) - 1, 0, -1):
+            j = random.randint(0, i)
+            image_list[i], image_list[j] = image_list[j], image_list[i]
+        ratio = 0.8
+        split_point = int(len(image_list) * ratio)
+        # 分割数组
+        train_set, val_set = image_list[:split_point], image_list[split_point:]
+        train_label = osp.join(save_path, "labels", "train")
+        train_image = osp.join(save_path, "images", "train")
+        val_label = osp.join(save_path, "labels", "val")
+        val_image = osp.join(save_path, "images", "val")
+        os.makedirs(train_label, exist_ok=True)
+        os.makedirs(train_image, exist_ok=True)
+        os.makedirs(val_label, exist_ok=True)
+        os.makedirs(val_image, exist_ok=True)
+        try:
+            for i, image_file in enumerate(train_set):
+                image_file_name = osp.basename(image_file)
+                label_file_name = osp.splitext(image_file_name)[0] + ".json"
+                dst_file_name = osp.splitext(image_file_name)[0] + ".txt"
+                dst_file = osp.join(train_label, dst_file_name)
+                src_file = osp.join(label_dir_path, label_file_name)
+                is_emtpy_file = converter.custom_to_yolo(
+                    src_file, dst_file, mode, skip_empty_files
+                )
+                if save_images and not (skip_empty_files and is_emtpy_file):
+                    image_dst = osp.join(train_image, image_file_name)
+                    shutil.copy(image_file, image_dst)
+                if skip_empty_files and is_emtpy_file and osp.exists(dst_file):
+                    os.remove(dst_file)
+                # Update progress bar
+                progress_dialog.setValue(i)
+                if progress_dialog.wasCanceled():
+                    break
+            for i, image_file in enumerate(val_set):
+                image_file_name = osp.basename(image_file)
+                label_file_name = osp.splitext(image_file_name)[0] + ".json"
+                dst_file_name = osp.splitext(image_file_name)[0] + ".txt"
+                dst_file = osp.join(val_label, dst_file_name)
+                src_file = osp.join(label_dir_path, label_file_name)
+                is_emtpy_file = converter.custom_to_yolo(
+                    src_file, dst_file, mode, skip_empty_files
+                )
+                if save_images and not (skip_empty_files and is_emtpy_file):
+                    image_dst = osp.join(val_image, image_file_name)
+                    shutil.copy(image_file, image_dst)
+                if skip_empty_files and is_emtpy_file and osp.exists(dst_file):
+                    os.remove(dst_file)
+                # Update progress bar
+                progress_dialog.setValue(i)
+                if progress_dialog.wasCanceled():
+                    break
+            # Hide the progress dialog after processing is done
+            progress_dialog.close()
+
+            data = {
+                "path": "../datasets/"+os.path.basename(os.path.normpath(save_path)),
+                "train": "images/train",
+                "val": "images/val",
+                "nc": len(self._config.get("labels")),
+                "names": self._config.get("labels")
+            }
+            # 将YAML字符串保存到文件中
+            with open(osp.join(save_path, 'data.yaml'), 'w') as file:
+                yaml.dump(data, file, default_flow_style=False, sort_keys=False)
+
+            # # Show success message
+            save_path = osp.realpath(save_path)
+            msg_box = QMessageBox()
+            msg_box.setIcon(QMessageBox.Information)
+            msg_box.setText(self.tr("Exporting annotations successfully!"))
+            msg_box.setInformativeText(self.tr(f"Results have been saved to:\n{save_path}"))
+            msg_box.setWindowTitle(self.tr("Success"))
+            msg_box.exec_()
+
+        except Exception as e:
+            progress_dialog.close()
+            error_dialog = QMessageBox()
+            error_dialog.setIcon(QMessageBox.Critical)
+            error_dialog.setText(self.tr("Error occurred while exporting annotations."))
+            error_dialog.setInformativeText(str(e))
+            error_dialog.setWindowTitle(self.tr("Error"))
+            error_dialog.exec_()
+
+
     def export_yolo_annotation(self, mode, _value=False, dirpath=None):
         if not self.may_continue():
             return

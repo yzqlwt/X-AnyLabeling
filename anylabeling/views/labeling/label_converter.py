@@ -34,6 +34,9 @@ class LabelConverter:
                 for class_name, keypoint_name in data['classes'].items():
                     self.pose_classes[class_name] = keypoint_name
 
+    def set_classes(self, classes):
+        self.classes  = classes
+
     def reset(self):
         self.custom_data = dict(
             version=__version__,
