@@ -669,22 +669,23 @@ class LabelConverter:
                             "Please update your code to accommodate the new four-point mode."
                         )
                         points = rectangle_from_diagonal(points)
+                    try:
+                        class_index = self.classes.index(label)
+                        x_center = (points[0][0] + points[2][0]) / (
+                                2 * image_width
+                        )
+                        y_center = (points[0][1] + points[2][1]) / (
+                                2 * image_height
+                        )
+                        width = abs(points[2][0] - points[0][0]) / image_width
+                        height = abs(points[2][1] - points[0][1]) / image_height
 
-                    class_index = self.classes.index(label)
-
-                    x_center = (points[0][0] + points[2][0]) / (
-                        2 * image_width
-                    )
-                    y_center = (points[0][1] + points[2][1]) / (
-                        2 * image_height
-                    )
-                    width = abs(points[2][0] - points[0][0]) / image_width
-                    height = abs(points[2][1] - points[0][1]) / image_height
-
-                    f.write(
-                        f"{class_index} {x_center} {y_center} {width} {height}\n"
-                    )
-                    is_empty_file = False
+                        f.write(
+                            f"{class_index} {x_center} {y_center} {width} {height}\n"
+                        )
+                        is_empty_file = False
+                    except ValueError:
+                        print(f"不存在的类别 {label}")
                 elif mode == "seg" and shape_type == "polygon":
                     label = shape["label"]
                     points = np.array(shape["points"])
@@ -705,19 +706,24 @@ class LabelConverter:
                     is_empty_file = False
                 elif mode == "obb" and shape_type == "rotation":
                     label = shape["label"]
-                    points = list(chain.from_iterable(shape["points"]))
-                    normalized_coords = [
-                        points[i] / image_width
-                        if i % 2 == 0
-                        else points[i] / image_height
-                        for i in range(8)
-                    ]
-                    x0, y0, x1, y1, x2, y2, x3, y3 = normalized_coords
-                    class_index = self.classes.index(label)
-                    f.write(
-                        f"{class_index} {x0} {y0} {x1} {y1} {x2} {y2} {x3} {y3}\n"
-                    )
-                    is_empty_file = False
+                    try:
+                        class_index = self.classes.index(label)
+                        points = list(chain.from_iterable(shape["points"]))
+                        normalized_coords = [
+                            points[i] / image_width
+                            if i % 2 == 0
+                            else points[i] / image_height
+                            for i in range(8)
+                        ]
+                        x0, y0, x1, y1, x2, y2, x3, y3 = normalized_coords
+
+                        f.write(
+                            f"{class_index} {x0} {y0} {x1} {y1} {x2} {y2} {x3} {y3}\n"
+                        )
+                        is_empty_file = False
+                    except ValueError:
+                        print(f"不存在的类别 {label}")
+
                 elif mode == "pose":
                     if shape_type not in ["rectangle", "point"]:
                         continue
