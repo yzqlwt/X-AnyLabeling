@@ -1,6 +1,8 @@
 import os
 import copy
 import time
+
+import requests
 import yaml
 import importlib.resources as pkg_resources
 from threading import Lock
@@ -59,10 +61,12 @@ class ModelManager(QObject):
     def load_model_configs(self):
         """Load model configs"""
         # Load list of default models
-        with pkg_resources.open_text(
-            auto_labeling_configs, "models.yaml"
-        ) as f:
-            model_list = yaml.safe_load(f)
+        url = "http://qiniu.yzqlwt.com/models.yaml"  # 换成实际地址
+        model_list = yaml.safe_load(requests.get(url, timeout=10).text)
+        # with pkg_resources.open_text(
+        #     auto_labeling_configs, "models.yaml"
+        # ) as f:
+        #     model_list = yaml.safe_load(f)
 
         # Load list of custom models
         custom_models = get_config().get("custom_models", [])
@@ -94,6 +98,16 @@ class ModelManager(QObject):
                 with open(resource_path, "r", encoding="utf-8") as f:
                     model_config = yaml.safe_load(f)
                     model_config["config_file"] = str(config_file)
+            elif config_file.startswith("http://"):
+                content = requests.get(config_file, timeout=10).text
+                model_config = yaml.safe_load(content)
+                config_file = os.path.join(
+                    os.path.expanduser("~"), f"xanylabeling_data/{model_config['name']}.yaml"
+                )
+                with open(config_file, "w", encoding="utf-8") as f:
+                    f.write(content)
+                    f.close()
+                model_config["config_file"] = config_file
             else:  # Config file is in local file system
                 with open(config_file, "r", encoding="utf-8") as f:
                     model_config = yaml.safe_load(f)

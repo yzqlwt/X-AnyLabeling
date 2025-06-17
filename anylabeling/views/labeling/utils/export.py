@@ -2,9 +2,12 @@ import json
 import os
 import os.path as osp
 import pathlib
+import random
 import shutil
 import time
+import traceback
 
+import yaml
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
 from PyQt5.QtWidgets import (
@@ -272,6 +275,46 @@ def export_yolo_annotation(self, mode):
             progress_dialog.setValue(i)
             if progress_dialog.wasCanceled():
                 break
+        count = len(image_list)
+        numbers = list(range(0, count))
+        random.shuffle(numbers)  # 打乱顺序
+        split_index = int(count * 0.8)
+        train_set = numbers[:split_index]
+        test_set = numbers[split_index:]
+        images_path = os.path.join(save_path, "images")
+        labels_path = os.path.join(save_path, "labels")
+
+        images_train = os.path.join(images_path, "train")
+        images_val = os.path.join(images_path, "val")
+        labels_train = os.path.join(labels_path, "train")
+        labels_val = os.path.join(labels_path, "val")
+        os.makedirs(images_train)
+        os.makedirs(images_val)
+        os.makedirs(labels_train)
+        os.makedirs(labels_val)
+        for v in train_set:
+            name = os.path.splitext(os.path.basename(image_list[v]))[0]
+            shutil.move(os.path.join(save_path, f"{name}.jpg"), images_train)
+            shutil.move(os.path.join(save_path, f"{name}.txt"), labels_train)
+        for v in test_set:
+            name = os.path.splitext(os.path.basename(image_list[v]))[0]
+            shutil.move(os.path.join(save_path, f"{name}.jpg"), images_val)
+            shutil.move(os.path.join(save_path, f"{name}.txt"), labels_val)
+
+        yaml_path = os.path.join(save_path, "data.yaml")
+        with open(yaml_path, 'w', encoding='utf-8') as f:
+            yaml.safe_dump(
+                {
+                        "train": "images/train",
+                        "val": "images/val",
+                        "nc": len(converter.classes),
+                        "names": converter.classes
+                },
+                f,
+                allow_unicode=True,  # 保证中文不会乱码
+                sort_keys=False,  # 保留原有键的顺序
+                default_flow_style=False  # 用块样式（更易读）
+            )
 
         progress_dialog.close()
         template = self.tr(
@@ -291,6 +334,7 @@ def export_yolo_annotation(self, mode):
         message = f"Error occurred while exporting annotations: {str(e)}"
         progress_dialog.close()
         logger.error(message)
+        logger.error(traceback.format_exc())
         popup = Popup(
             message,
             self,

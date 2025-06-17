@@ -1118,7 +1118,7 @@ class LabelingWidget(LabelDialog):
 
         # Export
         export_yolo_hbb_annotation = action(
-            self.tr("&Export YOLO-Hbb Annotations"),
+            self.tr("&导出为YOLO HBB数据集"),
             lambda: utils.export_yolo_annotation(self, "hbb"),
             None,
             icon="format_yolo",
