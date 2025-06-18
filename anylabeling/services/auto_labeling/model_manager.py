@@ -61,7 +61,7 @@ class ModelManager(QObject):
     def load_model_configs(self):
         """Load model configs"""
         # Load list of default models
-        url = "http://qiniu.yzqlwt.com/models.yaml"  # 换成实际地址
+        url = "http://home.yzqlwt.com:9000/models/models.yaml"  # 换成实际地址
         model_list = yaml.safe_load(requests.get(url, timeout=10).text)
         # with pkg_resources.open_text(
         #     auto_labeling_configs, "models.yaml"
