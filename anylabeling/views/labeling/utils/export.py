@@ -1,3 +1,4 @@
+import glob
 import json
 import os
 import os.path as osp
@@ -275,6 +276,7 @@ def export_yolo_annotation(self, mode):
             progress_dialog.setValue(i)
             if progress_dialog.wasCanceled():
                 break
+        image_list = glob.glob(os.path.join(save_path, "*.jpg"))
         count = len(image_list)
         numbers = list(range(0, count))
         random.shuffle(numbers)  # 打乱顺序
