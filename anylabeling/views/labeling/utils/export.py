@@ -685,7 +685,9 @@ def export_coco_annotation(self, mode):
             )
             popup.show_popup(self, popup_height=65, position="center")
         else:
-            message = f"Error occurred while exporting annotations: {str(error_msg)}"
+            message = (
+                f"Error occurred while exporting annotations: {str(error_msg)}"
+            )
             logger.error(message)
             popup = Popup(
                 message,
@@ -1188,7 +1190,9 @@ def export_mot_annotation(self, mode):
             )
             popup.show_popup(self, popup_height=65, position="center")
         else:
-            message = f"Error occurred while exporting annotations: {str(error_msg)}"
+            message = (
+                f"Error occurred while exporting annotations: {str(error_msg)}"
+            )
             logger.error(message)
             popup = Popup(
                 message,

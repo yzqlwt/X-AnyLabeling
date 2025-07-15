@@ -31,7 +31,7 @@ class Canvas(
     """Canvas widget to handle label drawing"""
 
     zoom_request = QtCore.pyqtSignal(int, QtCore.QPoint)
-    scroll_request = QtCore.pyqtSignal(int, int)
+    scroll_request = QtCore.pyqtSignal(float, int, int)
     # [Feature] support for automatically switching to editing mode
     # when the cursor moves over an object
     mode_changed = QtCore.pyqtSignal()
@@ -59,10 +59,18 @@ class Canvas(
                 f"Unexpected value for double_click event: {self.double_click}"
             )
         self.num_backups = kwargs.pop("num_backups", 10)
-        self.wheel_rectangle_editing = kwargs.pop("wheel_rectangle_editing", {})
-        self.enable_wheel_rectangle_editing = self.wheel_rectangle_editing.get("enable", False)
-        self.rect_adjust_step = self.wheel_rectangle_editing.get("adjust_step", 2.0)
-        self.rect_scale_step = self.wheel_rectangle_editing.get("scale_step", 0.05)
+        self.wheel_rectangle_editing = kwargs.pop(
+            "wheel_rectangle_editing", {}
+        )
+        self.enable_wheel_rectangle_editing = self.wheel_rectangle_editing.get(
+            "enable", False
+        )
+        self.rect_adjust_step = self.wheel_rectangle_editing.get(
+            "adjust_step", 2.0
+        )
+        self.rect_scale_step = self.wheel_rectangle_editing.get(
+            "scale_step", 0.05
+        )
         self.parent = kwargs.pop("parent")
         super().__init__(*args, **kwargs)
         # Initialise local state.
@@ -82,6 +90,7 @@ class Canvas(
         #   - create_mode == 'point': the point
         self.line = Shape()
         self.prev_point = QtCore.QPoint()
+        self.prev_pan_point = QtCore.QPoint()
         self.prev_move_point = QtCore.QPoint()
         self.offsets = QtCore.QPointF(), QtCore.QPointF()
         self.scale = 1.0
@@ -186,14 +195,24 @@ class Canvas(
 
     def store_moving_shape(self):
         """Store a moving shape"""
-        if self.moving_shape and self.h_hape:
-            index = self.shapes.index(self.h_hape)
-            if (
-                    self.shapes_backups[-1][index].points
-                    != self.shapes[index].points
-            ):
-                self.store_shapes()
-                self.shape_moved.emit()
+        if self.moving_shape:
+            moving_shapes = (
+                [self.h_hape] + self.selected_shapes
+                if self.h_hape and self.h_hape not in self.selected_shapes
+                else self.selected_shapes.copy()
+            )
+            for shape in moving_shapes:
+                if shape in self.shapes:
+                    index = self.shapes.index(shape)
+                    if (
+                        len(self.shapes_backups) > 0
+                        and index < len(self.shapes_backups[-1])
+                        and self.shapes_backups[-1][index].points
+                        != self.shapes[index].points
+                    ):
+                        self.store_shapes()
+                        self.shape_moved.emit()
+                        break
 
             self.moving_shape = False
 
@@ -310,11 +329,8 @@ class Canvas(
         except AttributeError:
             return
 
-        self.show_shape.emit(-1, -1, pos)
-
         self.prev_move_point = pos
         self.repaint()
-        self.restore_cursor()
 
         # Polygon drawing.
         if self.drawing():
@@ -322,8 +338,8 @@ class Canvas(
             self.line.line_color = QtGui.QColor(*line_color)
             self.line.shape_type = self.create_mode
 
-            self.override_cursor(CURSOR_DRAW)
             if not self.current:
+                self.override_cursor(CURSOR_DRAW)
                 return
 
             if self.create_mode == "rectangle":
@@ -359,6 +375,8 @@ class Canvas(
                 color = self.current.line_color
                 self.override_cursor(CURSOR_POINT)
                 self.current.highlight_vertex(0, Shape.NEAR_VERTEX)
+            else:
+                self.override_cursor(CURSOR_DRAW)
             if self.create_mode in ["polygon", "linestrip"]:
                 self.line[0] = self.current[-1]
                 self.line[1] = pos
@@ -421,6 +439,25 @@ class Canvas(
                     shape_width = int(abs(p2.x() - p1.x()))
                     shape_height = int(abs(p2.y() - p1.y()))
                     self.show_shape.emit(shape_width, shape_height, pos)
+            else:
+                if (
+                    self.pixmap
+                    and self.pixmap.width()
+                    and self.pixmap.height()
+                ):
+                    self.override_cursor(CURSOR_MOVE)
+                    delta = ev.localPos() - self.prev_pan_point
+                    self.scroll_request.emit(
+                        delta.x() / (self.pixmap.width() * self.scale),
+                        Qt.Horizontal,
+                        1,
+                    )
+                    self.scroll_request.emit(
+                        delta.y() / (self.pixmap.height() * self.scale),
+                        Qt.Vertical,
+                        1,
+                    )
+                    self.repaint()
             return
 
         if self.editing() and self.is_move_editing:
@@ -442,6 +479,8 @@ class Canvas(
                 self.is_move_editing = False
 
             return
+
+        self.show_shape.emit(-1, -1, pos)
 
         # Just hovering over the canvas, 2 possibilities:
         # - Highlight shapes
@@ -523,6 +562,7 @@ class Canvas(
                 break
         else:  # Nothing found, clear highlights, reset state.
             self.un_highlight()
+            self.override_cursor(CURSOR_DEFAULT)
         self.vertex_selected.emit(self.h_vertex is not None)
 
     def add_point_to_edge(self):
@@ -661,6 +701,7 @@ class Canvas(
                     pos, multiple_selection_mode=group_mode
                 )
                 self.prev_point = pos
+                self.prev_pan_point = ev.localPos()
                 self.repaint()
         elif ev.button() == QtCore.Qt.RightButton and self.editing():
             group_mode = int(ev.modifiers()) == QtCore.Qt.ControlModifier
@@ -1637,11 +1678,13 @@ class Canvas(
         mods = ev.modifiers()
         delta = ev.angleDelta()
 
-        if (self.editing() and 
-            self.enable_wheel_rectangle_editing and 
-            len(self.selected_shapes) == 1 and 
-            self.selected_shapes[0].shape_type == "rectangle" and
-            not (QtCore.Qt.ControlModifier & int(mods))):
+        if (
+            self.editing()
+            and self.enable_wheel_rectangle_editing
+            and len(self.selected_shapes) == 1
+            and self.selected_shapes[0].shape_type == "rectangle"
+            and not (QtCore.Qt.ControlModifier & int(mods))
+        ):
 
             try:
                 pos = self.transform_pos(ev.posF())
@@ -1668,8 +1711,8 @@ class Canvas(
             self.zoom_request.emit(delta.y(), ev.pos())
         else:
             # scroll
-            self.scroll_request.emit(delta.x(), QtCore.Qt.Horizontal)
-            self.scroll_request.emit(delta.y(), QtCore.Qt.Vertical)
+            self.scroll_request.emit(delta.x(), QtCore.Qt.Horizontal, 0)
+            self.scroll_request.emit(delta.y(), QtCore.Qt.Vertical, 0)
         ev.accept()
 
     def _scale_rectangle(self, shape, scale_up):
@@ -1688,7 +1731,11 @@ class Canvas(
         center_y = sum(y_coords) / 4
         center = QtCore.QPointF(center_x, center_y)
 
-        scale_factor = 1.0 + self.rect_scale_step if scale_up else 1.0 - self.rect_scale_step
+        scale_factor = (
+            1.0 + self.rect_scale_step
+            if scale_up
+            else 1.0 - self.rect_scale_step
+        )
         scale_factor = max(0.1, scale_factor)
 
         new_points = []
@@ -1698,8 +1745,12 @@ class Canvas(
             scaled_offset = offset * scale_factor
             new_point = center + scaled_offset
 
-            if (new_point.x() < 0 or new_point.x() >= img_width or 
-                new_point.y() < 0 or new_point.y() >= img_height):
+            if (
+                new_point.x() < 0
+                or new_point.x() >= img_width
+                or new_point.y() < 0
+                or new_point.y() >= img_height
+            ):
                 return
 
             new_points.append(new_point)
@@ -1719,33 +1770,51 @@ class Canvas(
         distances = {}
 
         if cursor_pos.x() < min_x:
-            distances['left'] = min_x - cursor_pos.x()
+            distances["left"] = min_x - cursor_pos.x()
         elif cursor_pos.x() > max_x:
-            distances['right'] = cursor_pos.x() - max_x
+            distances["right"] = cursor_pos.x() - max_x
         else:
-            distances['left'] = abs(cursor_pos.x() - min_x)
-            distances['right'] = abs(cursor_pos.x() - max_x)
-        
-        if cursor_pos.y() < min_y:
-            distances['top'] = min_y - cursor_pos.y()
-        elif cursor_pos.y() > max_y:
-            distances['bottom'] = cursor_pos.y() - max_y
-        else:
-            distances['top'] = abs(cursor_pos.y() - min_y)
-            distances['bottom'] = abs(cursor_pos.y() - max_y)
+            distances["left"] = abs(cursor_pos.x() - min_x)
+            distances["right"] = abs(cursor_pos.x() - max_x)
 
-        if cursor_pos.x() < min_x and cursor_pos.y() >= min_y and cursor_pos.y() <= max_y:
-            closest_edge = 'left'
-        elif cursor_pos.x() > max_x and cursor_pos.y() >= min_y and cursor_pos.y() <= max_y:
-            closest_edge = 'right'
-        elif cursor_pos.y() < min_y and cursor_pos.x() >= min_x and cursor_pos.x() <= max_x:
-            closest_edge = 'top'
-        elif cursor_pos.y() > max_y and cursor_pos.x() >= min_x and cursor_pos.x() <= max_x:
-            closest_edge = 'bottom'
+        if cursor_pos.y() < min_y:
+            distances["top"] = min_y - cursor_pos.y()
+        elif cursor_pos.y() > max_y:
+            distances["bottom"] = cursor_pos.y() - max_y
+        else:
+            distances["top"] = abs(cursor_pos.y() - min_y)
+            distances["bottom"] = abs(cursor_pos.y() - max_y)
+
+        if (
+            cursor_pos.x() < min_x
+            and cursor_pos.y() >= min_y
+            and cursor_pos.y() <= max_y
+        ):
+            closest_edge = "left"
+        elif (
+            cursor_pos.x() > max_x
+            and cursor_pos.y() >= min_y
+            and cursor_pos.y() <= max_y
+        ):
+            closest_edge = "right"
+        elif (
+            cursor_pos.y() < min_y
+            and cursor_pos.x() >= min_x
+            and cursor_pos.x() <= max_x
+        ):
+            closest_edge = "top"
+        elif (
+            cursor_pos.y() > max_y
+            and cursor_pos.x() >= min_x
+            and cursor_pos.x() <= max_x
+        ):
+            closest_edge = "bottom"
         else:
             closest_edge = min(distances, key=distances.get)
 
-        step = self.rect_adjust_step if move_outward else -self.rect_adjust_step
+        step = (
+            self.rect_adjust_step if move_outward else -self.rect_adjust_step
+        )
 
         if self.pixmap is None:
             return
@@ -1754,20 +1823,20 @@ class Canvas(
 
         for i, point in enumerate(shape.points):
             new_point = None
-            
-            if closest_edge == 'left' and abs(point.x() - min_x) < 1e-6:
+
+            if closest_edge == "left" and abs(point.x() - min_x) < 1e-6:
                 new_x = max(0, point.x() - step)
                 new_point = QtCore.QPointF(new_x, point.y())
-            elif closest_edge == 'right' and abs(point.x() - max_x) < 1e-6:
+            elif closest_edge == "right" and abs(point.x() - max_x) < 1e-6:
                 new_x = min(img_width - 1, point.x() + step)
                 new_point = QtCore.QPointF(new_x, point.y())
-            elif closest_edge == 'top' and abs(point.y() - min_y) < 1e-6:
+            elif closest_edge == "top" and abs(point.y() - min_y) < 1e-6:
                 new_y = max(0, point.y() - step)
                 new_point = QtCore.QPointF(point.x(), new_y)
-            elif closest_edge == 'bottom' and abs(point.y() - max_y) < 1e-6:
+            elif closest_edge == "bottom" and abs(point.y() - max_y) < 1e-6:
                 new_y = min(img_height - 1, point.y() + step)
                 new_point = QtCore.QPointF(point.x(), new_y)
-                
+
             if new_point is not None:
                 shape.points[i] = new_point
 
@@ -1914,11 +1983,22 @@ class Canvas(
         self.visible[shape] = value
         self.update()
 
+    def current_cursor(self):
+        """Current cursor"""
+        cursor = QtWidgets.QApplication.overrideCursor()
+        cursor = cursor.shape() if cursor else None
+
+        return cursor
+
     def override_cursor(self, cursor):
         """Override cursor"""
-        self.restore_cursor()
-        self._cursor = cursor
-        QtWidgets.QApplication.setOverrideCursor(cursor)
+        current_cursor = self.current_cursor()
+        if current_cursor != cursor:
+            self._cursor = cursor
+            if current_cursor is None:
+                QtWidgets.QApplication.setOverrideCursor(cursor)
+            else:
+                QtWidgets.QApplication.changeOverrideCursor(cursor)
 
     def restore_cursor(self):
         """Restore override cursor"""
