@@ -208,6 +208,9 @@ class LabelingWidget(LabelDialog):
             "QDockWidget::title {" "text-align: center;" "padding: 0px;" "}"
         )
 
+        self.label_search = SearchBar()
+        self.label_search.setPlaceholderText(self.tr("Search Label"))
+        self.label_search.textChanged.connect(self.label_search_changed)
         self.file_search = SearchBar()
         self.file_search.setPlaceholderText(self.tr("Search Filename"))
         self.file_search.textChanged.connect(self.file_search_changed)
@@ -218,6 +221,7 @@ class LabelingWidget(LabelDialog):
         file_list_layout = QtWidgets.QVBoxLayout()
         file_list_layout.setContentsMargins(0, 4, 0, 0)
         file_list_layout.setSpacing(4)
+        file_list_layout.addWidget(self.label_search)
         file_list_layout.addWidget(self.file_search)
         file_list_layout.addWidget(self.file_list_widget)
         self.file_dock = QtWidgets.QDockWidget("", self)
@@ -2577,6 +2581,13 @@ class LabelingWidget(LabelDialog):
             load=False,
         )
 
+    def label_search_changed(self):
+        self.import_image_folder_2(
+            self.last_open_dir,
+            pattern=self.label_search.text(),
+            load=False,
+        )
+
     def file_selection_changed(self):
         items = self.file_list_widget.selectedItems()
         if not items:
@@ -4097,6 +4108,38 @@ class LabelingWidget(LabelDialog):
                 item.setCheckState(Qt.Unchecked)
             self.file_list_widget.addItem(item)
             self.fn_to_index[filename] = self.file_list_widget.count() - 1
+            # utils.process_image_exif(filename)
+
+        self.actions.open_next_image.setEnabled(True)
+        self.actions.open_prev_image.setEnabled(True)
+        self.actions.open_next_unchecked_image.setEnabled(True)
+        self.actions.open_prev_unchecked_image.setEnabled(True)
+
+        self.open_next_image(load=load)
+
+    def import_image_folder_2(self, dirpath, pattern=None, load=True):
+        if not self.may_continue() or not dirpath:
+            return
+
+        self.last_open_dir = dirpath
+        self.filename = None
+        self.file_list_widget.clear()
+        for filename in utils.scan_all_images(dirpath):
+            label_file = osp.splitext(filename)[0] + ".json"
+            if self.output_dir:
+                label_file_without_path = osp.basename(label_file)
+                label_file = self.output_dir + "/" + label_file_without_path
+            item = QtWidgets.QListWidgetItem(filename)
+            item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
+            if QtCore.QFile.exists(label_file) and LabelFile.is_label_file(
+                label_file
+            ):
+                item.setCheckState(Qt.Checked)
+                with open(label_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                    if not pattern or pattern in content:
+                        self.file_list_widget.addItem(item)
+                        self.fn_to_index[filename] = self.file_list_widget.count() - 1
             # utils.process_image_exif(filename)
 
         self.actions.open_next_image.setEnabled(True)
