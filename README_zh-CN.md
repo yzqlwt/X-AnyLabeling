@@ -19,36 +19,48 @@
 
 ![](https://user-images.githubusercontent.com/18329471/234640541-a6a65fbc-d7a5-4ec3-9b65-55305b01a7aa.png)
 
-https://github.com/user-attachments/assets/f517fa94-c49c-4f05-864e-96b34f592079
+<video src="https://github.com/user-attachments/assets/f517fa94-c49c-4f05-864e-96b34f592079" width="100%" controls>
+</video>
 
-https://github.com/user-attachments/assets/52cbdb5d-cc60-4be5-826f-903ea4330ca8
+</br>
 
-<div align="center"><strong>基于文本/视觉提示或免提示的检测和分割统一模型</strong></div>
+<details>
+<summary><strong>基于文本/视觉提示或免提示的检测和分割统一模型</strong></summary>
 
-<br>
+<video src="https://github.com/user-attachments/assets/52cbdb5d-cc60-4be5-826f-903ea4330ca8" width="100%" controls>
+</video>
+</details>
+
+<details>
+<summary><strong>检测一切</strong></summary>
 
 <img src="https://github.com/user-attachments/assets/7f43bcec-96fd-48d1-bd36-9e5a440a66f6" width="100%" />
-<div align="center"><strong>检测一切</strong></div>
+</details>
 
-<br>
+<details>
+<summary><strong>分割一切</strong></summary>
 
 <img src="https://github.com/user-attachments/assets/208dc9ed-b8c9-4127-9e5b-e76f53892f03" width="100%" />
-<div align="center"><strong>分割一切</strong></div>
+</details>
 
-<br>
+<details>
+<summary><strong>聊天机器人</strong></summary>
 
 <img src="https://github.com/user-attachments/assets/56c9a20b-c836-47aa-8b54-bad5bb99b735" width="100%" />
-<div align="center"><strong>聊天机器人</strong></div>
+</details>
+
+<details>
+<summary><strong>视觉问答</strong></summary>
+
+<video src="https://github.com/user-attachments/assets/92807672-f101-475b-b790-9caa1c31da05" width="100%" controls>
+</video>
+</details>
 
 
 ## 🥳 新功能
 
-- 新增启动时自动更新检查
-- 新增矩形框鼠标滚轮缩放和边缘调整功能
-- 添加图形界面支持上传自定义标签集合
-- 新增图像抠图和深度估计任务的实时结果预览功能
-- 支持 `RMBG v2.0` 图像抠图模型
-- X-AnyLabeling [v3.0.3](https://github.com/CVHub520/X-AnyLabeling/releases/tag/v3.0.3) 最新版本发布
+- 新增支持 [MM-Grounding-DINO](https://github.com/open-mmlab/mmdetection/blob/main/configs/mm_grounding_dino/README.md) 标签导入
+- X-AnyLabeling [v3.1.1](https://github.com/CVHub520/X-AnyLabeling/releases/tag/v3.1.1) 最新版本发布
 - 更多详情，请参考[更新日志](./CHANGELOG.md)
 
 
@@ -65,7 +77,7 @@ https://github.com/user-attachments/assets/52cbdb5d-cc60-4be5-826f-903ea4330ca8
 - 支持一键预测所有图像。
 - 支持`图像`和`视频`处理。
 - 支持自定义模型和二次开发。
-- 支持一键导入和导出多种标签格式，如 COCO\VOC\YOLO\DOTA\MOT\MASK\PPOCR\VLM-R1 等；
+- 支持一键导入和导出多种标签格式，如 COCO\VOC\YOLO\DOTA\MOT\MASK\PPOCR\MMGF\VLM-R1 等；
 - 支持多种图像标注样式，包括 `多边形`、`矩形`、`旋转框`、`圆形`、`线条`、`点`，以及 `文本检测`、`识别` 和 `KIE` 标注；
 - 支持各类视觉任务，如`图像分类`、`目标检测`、`实例分割`、`姿态估计`、`旋转检测`、`多目标跟踪`、`光学字符识别`、`图像文本描述`、`车道线检测`、`分割一切`等。
 
@@ -99,6 +111,7 @@ https://github.com/user-attachments/assets/52cbdb5d-cc60-4be5-826f-903ea4330ca8
 3. [自定义模型](./docs/zh_cn/custom_model.md)
 4. [常见问题答疑](./docs/zh_cn/faq.md)
 5. [聊天机器人](./docs/zh_cn/chatbot.md)
+6. [视觉问答](./docs/zh_cn/vqa.md)
 
 
 ## 示例
@@ -178,4 +191,8 @@ https://github.com/user-attachments/assets/52cbdb5d-cc60-4be5-826f-903ea4330ca8
 }
 ```
 
-<div align="right"><a href="#top">🔝 Back to Top</a></div>
+---
+
+![Star History Chart](https://api.star-history.com/svg?repos=CVHub520/X-AnyLabeling&type=Date)
+
+<div align="center"><a href="#top">🔝 返回顶部</a></div>

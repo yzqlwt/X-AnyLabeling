@@ -1,5 +1,59 @@
 # X-AnyLabeling Changelog
 
+## `v3.1.1` (Jul 05, 2025)
+
+### 🚀 New Features
+
+- Add customizable field export options for VQA dialog
+- Add ability to adjust the visible area of the image by dragging the mouse (#1019)
+
+### 🐛 Bug Fixes
+
+- Fix VQA keyboard shortcut (Ctrl+Q → Ctrl+1)
+
+### 🌟 Contributors
+
+A total of 2 developer contributed to this release.
+
+Thank @zhixuwei, @CVHub520
+
+## `v3.1.0` (Jul 02, 2025)
+
+### 🚀 New Features
+
+- Support `RMBG v2.0` model for image matting
+- Add output_path parameter to COCO label converter methods for custom output paths
+- Add real-time result preview for matting and depth estimation tasks
+- Add GUI support for uploading custom label classes (#988)
+- Add rectangle scaling and edge adjustment with mouse wheel support (#989)
+- Add automatic update check on startup
+- Add Visual Question Answering tool
+
+### 🐛 Bug Fixes
+
+- Improve error handling and logging for annotation export and upload processes (#974)
+- Fix annotation_id increment in COCO data processing (#976)
+- Fix failure to click again after custom model loading
+- Fix scrollbar slider display issue
+- Fix issue where copied shapes fail to be saved
+- Fix auto-save bug after undo operations when switching images (#1013)
+
+### 🛠️ Improvements
+
+- Add solution to CUDA dependency error: `Could not locate cublasLt64_12.dll. Please make sure it is in your library path!` (#1014)
+- Add solution to efficiency improvement plan for multi-object keypoint annotation and grouping (#982)
+- Add CLA, contributing templates, and README contributor section
+- Improve QWebEngineView import error handling in chatbot
+- Improve thumbnail rendering by mapping file extensions to model types in auto-labeling service
+- Improve shape adjustment convenience
+- Improve click-to-move editing with state cleanup and cursor feedback
+
+### 🌟 Contributors
+
+A total of 7 developer contributed to this release.
+
+Thank @1955946542, @donkinone, @ljh725, @pipihuang2, @sunmooncode, @zhixuwei, @CVHub520
+
 ## `v3.0.3` (May 28, 2025)
 
 ### 🚀 New Features

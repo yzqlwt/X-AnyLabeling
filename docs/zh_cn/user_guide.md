@@ -29,6 +29,7 @@
       * [4.7 PPOCR标签](#47-ppocr标签)
       * [4.8 ODVG标签](#48-odvg标签)
       * [4.9 VLM-R1-OVD标签](#49-vlm-r1-ovd标签)
+      * [4.10 MMGD标签](#410-mmgd标签)
    * [5. 工具栏](#5-工具栏)
       * [5.1 数据统计](#51-数据统计)
       * [5.2 保存子图](#52-保存子图)
@@ -60,7 +61,7 @@
       * [8.11 基于检测与分割的零样本计数](#811-基于检测与分割的零样本计数)
       * [8.12 Grounding](#812-grounding)
    * [9. 模型](#9-模型)
-   * [10. 聊天机器人](#10-聊天机器人)
+   * [10. 高级功能](#10-高级功能)
 
 ## 1. 文件
 
@@ -136,6 +137,16 @@ X-AnyLabeling 默认开启自动保存功能，用户在初次启动界面时，
     }
     // ... 更多对话
   ],
+  "vqaData": {
+    "question": "What animals are shown in the image?",
+    "answer": "zebras",
+    "split": "train",
+    "task": "QA",
+    "tags": [
+      "natural"
+    ],
+    // ... 更多选项
+  },
   "imagePath": "${filename}", // 图片的相对路径
   "imageData": null,         // Base64 编码的图片数据 (如果启用, 请参考 1.5)
   "imageHeight": -1,         // 图片高度
@@ -509,6 +520,18 @@ python3 tools/label_converter.py --task mots --mode custom_to_gt --src_path /pat
 
 > VLM-R1-OVD 标签文件导出示例可参考 [vlm_r1_ovd.jsonl](../../assets/vlm_r1_ovd.jsonl) 文件。
 
+### 4.10 MMGD标签
+
+当前 X-AnyLabeling v3.1.2+ 版本支持一键导入基于 [MM-Grounding-DINO](https://github.com/open-mmlab/mmdetection/blob/main/configs/mm_grounding_dino/README.md) 预测所获取的标签文件。
+
+**导入流程**：
+1. 点击上方菜单栏的 `导入` 按钮。
+2. 选择对应的任务。
+3. 上传类别文件。
+4. 选择标签文件所在目录，并根据自己需求勾选感兴趣的类别并设置过滤阈值，点击确定即可。
+
+其中，[classes.txt](../../assets/classes.txt) 文件用于后续标签序号到类别名称的映射，每一行代表一个类别，编号从上至下从 0 开始依次递增。
+
 
 ### 5. 工具栏
 
@@ -668,6 +691,7 @@ digit_shortcuts:
 | Alt + g               | 修改群组编号                           |
 | Ctrl + Delete         | 删除当前标签文件                    |
 | Ctrl + Shift + Delete | 删除当前图像文件                        |
+| Ctrl + 1              | 打开视觉问答窗口                     |
 | Ctrl + b              | 打开聊天机器人对话窗口                   |
 | Ctrl + q              | 退出当前应用程序                        |
 | Ctrl + i              | 打开图像文件                           |
@@ -895,6 +919,7 @@ X-AnyLabeling 支持从不同的模型中心下载预训练模型。用户可以
 
 关于如何加载和导出模型可参阅[自定义模型文档](./custom_model.md)。
 
-## 10. 聊天机器人
+## 10. 高级功能
 
 - 聊天机器人：[链接](../zh_cn/chatbot.md)
+- 视觉问答: [链接](../zh_cn/vqa.md)

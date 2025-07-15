@@ -44,6 +44,7 @@ from .widgets import (
     BrightnessContrastDialog,
     Canvas,
     ChatbotDialog,
+    VQADialog,
     CrosshairSettingsDialog,
     FileDialogPreview,
     GroupIDFilterComboBox,
@@ -230,7 +231,9 @@ class LabelingWidget(LabelDialog):
         file_list_widget = QtWidgets.QWidget()
         file_list_widget.setLayout(file_list_layout)
         self.file_dock.setWidget(file_list_widget)
-        self.file_dock.setStyleSheet("QDockWidget::title {" "text-align: center;" "padding: 0px;" "}")
+        self.file_dock.setStyleSheet(
+            "QDockWidget::title {" "text-align: center;" "padding: 0px;" "}"
+        )
 
         self.zoom_widget = ZoomWidget()
         self.setAcceptDrops(True)
@@ -240,7 +243,9 @@ class LabelingWidget(LabelDialog):
             epsilon=self._config["epsilon"],
             double_click=self._config["canvas"]["double_click"],
             num_backups=self._config["canvas"]["num_backups"],
-            wheel_rectangle_editing=self._config["canvas"]["wheel_rectangle_editing"],
+            wheel_rectangle_editing=self._config["canvas"][
+                "wheel_rectangle_editing"
+            ],
         )
         self.canvas.zoom_request.connect(self.zoom_request)
 
@@ -766,6 +771,13 @@ class LabelingWidget(LabelDialog):
             icon="chatbot",
             tip=self.tr("Open chatbot dialog"),
         )
+        open_vqa = action(
+            self.tr("VQA"),
+            self.open_vqa,
+            shortcuts["open_vqa"],
+            icon="vqa",
+            tip=self.tr("Open VQA dialog"),
+        )
 
         documentation = action(
             self.tr("&Documentation"),
@@ -1096,6 +1108,13 @@ class LabelingWidget(LabelDialog):
                 "Upload Custom Object Detection Visual Grounding Annotations"
             ),
         )
+        upload_mmgd_annotation = action(
+            self.tr("&Upload MM-Grounding-DINO Annotations"),
+            lambda: utils.upload_mmgd_annotation(self, LABEL_OPACITY),
+            None,
+            icon="format_mmgd",
+            tip=self.tr("Upload Custom MM-Grounding-DINO Annotations"),
+        )
         upload_ppocr_rec_annotation = action(
             self.tr("&Upload PPOCR-Rec Annotations"),
             lambda: utils.upload_ppocr_annotation(self, "rec"),
@@ -1368,6 +1387,7 @@ class LabelingWidget(LabelDialog):
             upload_mask_annotation=upload_mask_annotation,
             upload_mot_annotation=upload_mot_annotation,
             upload_odvg_annotation=upload_odvg_annotation,
+            upload_mmgd_annotation=upload_mmgd_annotation,
             upload_ppocr_rec_annotation=upload_ppocr_rec_annotation,
             upload_ppocr_kie_annotation=upload_ppocr_kie_annotation,
             upload_vlm_r1_ovd_annotation=upload_vlm_r1_ovd_annotation,
@@ -1411,6 +1431,7 @@ class LabelingWidget(LabelDialog):
             open_next_unchecked_image=open_next_unchecked_image,
             open_prev_unchecked_image=open_prev_unchecked_image,
             open_chatbot=open_chatbot,
+            open_vqa=open_vqa,
             file_menu_actions=(
                 open_,
                 openvideo,
@@ -1584,6 +1605,7 @@ class LabelingWidget(LabelDialog):
                 upload_mask_annotation,
                 upload_mot_annotation,
                 upload_odvg_annotation,
+                upload_mmgd_annotation,
                 None,
                 upload_ppocr_rec_annotation,
                 upload_ppocr_kie_annotation,
@@ -1695,6 +1717,7 @@ class LabelingWidget(LabelDialog):
             zoom,
             fit_width,
             open_chatbot,
+            open_vqa,
             toggle_auto_labeling_widget,
             run_all_images,
         )
@@ -1771,7 +1794,9 @@ class LabelingWidget(LabelDialog):
         thumbnail_image_layout.setContentsMargins(2, 2, 2, 2)
         self.thumbnail_image_label = QLabel()
         self.thumbnail_image_label.setAlignment(Qt.AlignCenter)
-        self.thumbnail_image_label.mousePressEvent = utils.on_thumbnail_click(self)
+        self.thumbnail_image_label.mousePressEvent = utils.on_thumbnail_click(
+            self
+        )
         thumbnail_image_layout.addWidget(self.thumbnail_image_label)
         self.thumbnail_container.setLayout(thumbnail_image_layout)
         self.thumbnail_container.hide()
@@ -1922,6 +1947,7 @@ class LabelingWidget(LabelDialog):
         text_mode = self.tr("Mode:")
         text_shortcuts = self.tr("Shortcuts:")
         text_chatbot = self.tr("Chatbot")
+        text_vqa = self.tr("VQA")
         text_previous = self.tr("Previous")
         text_next = self.tr("Next")
         text_rectangle = self.tr("Rectangle")
@@ -1931,6 +1957,7 @@ class LabelingWidget(LabelDialog):
             f"<b>{text_mode}</b> {self.canvas.get_mode()} | "
             f"<b>{text_shortcuts}</b>"
             f" {text_chatbot}(<b>Ctrl+B</b>),"
+            f" {text_vqa}(<b>Ctrl+1</b>),"
             f" {text_previous}(<b>A</b>),"
             f" {text_next}(<b>D</b>),"
             f" {text_rectangle}(<b>R</b>),"
@@ -2113,6 +2140,7 @@ class LabelingWidget(LabelDialog):
         self.label_list.clear()
         self.load_shapes(self.canvas.shapes)
         self.actions.undo.setEnabled(self.canvas.is_shape_restorable)
+        self.set_dirty()
 
     def get_label_file_list(self):
         label_file_list = []
@@ -2246,6 +2274,10 @@ class LabelingWidget(LabelDialog):
         dialog = ChatbotDialog(self)
         _ = dialog.exec_()
 
+    def open_vqa(self):
+        dialog = VQADialog(self)
+        _ = dialog.exec_()
+
     # Help
     def documentation(self):
         url = (
@@ -2316,6 +2348,10 @@ class LabelingWidget(LabelDialog):
 
         self.set_scroll(Qt.Horizontal, x_scroll)
         self.set_scroll(Qt.Vertical, y_scroll)
+        for shape in self.canvas.selected_shapes:
+            shape.selected = False
+        self.canvas.prev_h_shape = self.canvas.h_hape = item.shape()
+        self.canvas.update()
 
     def copy_to_clipboard(self, text):
         clipboard = QtWidgets.QApplication.clipboard()
@@ -2835,7 +2871,7 @@ class LabelingWidget(LabelDialog):
     def load_labels(self, labels, clear_existing=True):
         """
         Load labels to the unique label list widget.
-        
+
         Args:
             labels (list): List of label names to load
             clear_existing (bool): Whether to clear existing labels before loading new ones
@@ -3203,10 +3239,11 @@ class LabelingWidget(LabelDialog):
                     str(self.tr("X: %d, Y: %d")) % (int(pos.x()), int(pos.y()))
                 )
 
-    def scroll_request(self, delta, orientation):
-        units = -delta * 0.1  # natural scroll
+    def scroll_request(self, delta, orientation, mode):
         scroll_bar = self.scroll_bars[orientation]
-        value = scroll_bar.value() + scroll_bar.singleStep() * units
+        units = -delta * (0.1 if mode == 0 else 1)
+        step = scroll_bar.singleStep() if mode == 0 else scroll_bar.maximum()
+        value = scroll_bar.value() + step * units
         self.set_scroll(orientation, value)
 
     def set_scroll(self, orientation, value):
@@ -4075,6 +4112,7 @@ class LabelingWidget(LabelDialog):
             else:
                 item.setCheckState(Qt.Unchecked)
             self.file_list_widget.addItem(item)
+            self.fn_to_index[file] = self.file_list_widget.count() - 1
 
         if len(self.image_list) > 1:
             self.actions.open_next_image.setEnabled(True)
@@ -4457,20 +4495,28 @@ class LabelingWidget(LabelDialog):
         self.thumbnail_image_label.clear()
         self.thumbnail_container.hide()
 
-        model_config = self.auto_labeling_widget.model_manager.loaded_model_config
+        model_config = (
+            self.auto_labeling_widget.model_manager.loaded_model_config
+        )
         supported_model_list = list(_THUMBNAIL_RENDER_MODELS.keys())
-        if not (model_config and 
-                model_config.get("type") in supported_model_list and 
-                self.image_list):
+        if not (
+            model_config
+            and model_config.get("type") in supported_model_list
+            and self.image_list
+        ):
             return
 
         try:
             image_dir = osp.dirname(self.filename)
             parent_dir = osp.dirname(image_dir)
             base_name = osp.splitext(osp.basename(self.filename))[0]
-            save_dir, _thumbnail_file_ext = _THUMBNAIL_RENDER_MODELS[model_config["type"]]
+            save_dir, _thumbnail_file_ext = _THUMBNAIL_RENDER_MODELS[
+                model_config["type"]
+            ]
             thumbnail_dir = osp.join(parent_dir, save_dir)
-            thumbnail_path = osp.join(thumbnail_dir, base_name + _thumbnail_file_ext)
+            thumbnail_path = osp.join(
+                thumbnail_dir, base_name + _thumbnail_file_ext
+            )
             if not osp.exists(thumbnail_path):
                 return
 
