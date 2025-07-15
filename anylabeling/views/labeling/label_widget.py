@@ -160,7 +160,7 @@ class LabelingWidget(LabelDialog):
         )
 
         self.label_list = LabelListWidget()
-        self.last_open_dir = None
+        self.last_open_dir = self._config.get("last_open_dir", None)
 
         self.flag_dock = self.flag_widget = None
         self.flag_dock = QtWidgets.QDockWidget(self.tr("Flags"), self)
@@ -1011,7 +1011,7 @@ class LabelingWidget(LabelDialog):
         )
         upload_yolo_hbb_annotation = action(
             self.tr("&Upload YOLO-Hbb Annotations"),
-            lambda: utils.upload_yolo_annotation(self, "hbb", LABEL_OPACITY),
+            lambda: utils.upload_yolo_hbb_annotation(self, LABEL_OPACITY),
             None,
             icon="format_yolo",
             tip=self.tr(
@@ -4127,6 +4127,8 @@ class LabelingWidget(LabelDialog):
             return
 
         self.last_open_dir = dirpath
+        self._config["last_open_dir"] = dirpath
+        save_config(self._config)
         self.filename = None
         self.file_list_widget.clear()
         for filename in utils.scan_all_images(dirpath):
@@ -4160,6 +4162,8 @@ class LabelingWidget(LabelDialog):
             return
 
         self.last_open_dir = dirpath
+        self._config["last_open_dir"] = dirpath
+        save_config(self._config)
         self.filename = None
         self.file_list_widget.clear()
         for filename in utils.scan_all_images(dirpath):

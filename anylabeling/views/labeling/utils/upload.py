@@ -1,4 +1,6 @@
 import json
+import shutil
+
 import jsonlines
 import os
 import os.path as osp
@@ -19,7 +21,18 @@ from anylabeling.views.labeling.widgets import Popup
 from anylabeling.views.labeling.utils.qt import new_icon_path
 from anylabeling.views.labeling.utils.style import *
 from anylabeling.views.labeling.utils.export import _check_filename_exist
+from anylabeling.config import get_config
 
+
+def read_files_recursively(directory, name):
+    total = []
+    # Walk through all directories and files in the given directory
+    for root, _, files in os.walk(directory):
+        for file in files:
+            if file.endswith(name):
+                file_path = os.path.join(root, file)
+                total.append(file_path)
+    return total
 
 class UploadPPOCRThread(QThread):
     finished = pyqtSignal(bool, str)
@@ -1341,6 +1354,62 @@ def upload_voc_annotation(self, mode):
             icon=new_icon_path("error", "svg"),
         )
         popup.show_popup(self, position="center")
+
+def upload_yolo_hbb_annotation(self, LABEL_OPACITY):
+    filter = "Yaml Files (*.yaml);;All Files (*)"
+
+    yaml_file, _ = QtWidgets.QFileDialog.getOpenFileName(
+        self,
+        self.tr("Select a specific classes file"),
+        "",
+        filter,
+    )
+    if not yaml_file:
+        return
+    dataset_path = osp.dirname(yaml_file)
+    output_path = os.path.join(dataset_path, "output")
+    if os.path.exists(output_path):
+        shutil.rmtree(output_path)
+    os.makedirs(output_path, exist_ok=True)
+    self.classes_file = os.path.join(output_path, "classes.txt")
+    with open(yaml_file, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+        names = data["names"]
+    with open(self.classes_file, "w", encoding="utf-8") as f:
+        for name in names:
+            f.write(name + "\n")
+    converter = LabelConverter(classes_file=self.classes_file)
+
+    images_path = read_files_recursively(dataset_path, '.jpg')
+    labels_path = read_files_recursively(dataset_path, '.txt')
+    labels_dict = {
+        os.path.splitext(os.path.basename(path))[0]: path
+        for path in labels_path
+    }
+    progress_dialog = QProgressDialog(
+        self.tr("Converting..."),
+        self.tr("Cancel"),
+        0,
+        len(images_path),
+        self,
+    )
+    progress_dialog.setWindowModality(Qt.WindowModal)
+    progress_dialog.setWindowTitle(self.tr("Progress"))
+    progress_dialog.setMinimumWidth(500)
+    progress_dialog.setMinimumHeight(150)
+    progress_dialog.setStyleSheet(
+        get_progress_dialog_style(color="#1d1d1f", height=20)
+    )
+    for i, image_path in enumerate(images_path):
+        output_file_path = os.path.join(output_path, os.path.basename(image_path).replace(".jpg", ".json"))
+        input_file_path = labels_dict[os.path.splitext(os.path.basename(image_path))[0]]
+        converter.yolo_to_custom(input_file_path, output_file_path, image_path, 'hbb')
+        shutil.copy(image_path, os.path.join(output_path, os.path.basename(image_path)))
+        progress_dialog.setValue(i)
+        if progress_dialog.wasCanceled():
+            break
+    progress_dialog.close()
+    self.import_image_folder(output_path)
 
 
 def upload_yolo_annotation(self, mode, LABEL_OPACITY):

@@ -45,7 +45,10 @@ def get_default_config():
     # Save default config to ~/.xanylabelingrc
     if not osp.exists(osp.join(osp.expanduser("~"), ".xanylabelingrc")):
         save_config(config)
-
+    else:
+        # Load existing config to avoid overwriting user changes
+        with open(osp.join(osp.expanduser("~"), ".xanylabelingrc"), "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f)
     return config
 
 

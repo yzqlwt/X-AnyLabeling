@@ -59,6 +59,7 @@ from .upload import (
     upload_shape_attrs_file,
     upload_label_classes_file,
     upload_yolo_annotation,
+    upload_yolo_hbb_annotation,
     upload_voc_annotation,
     upload_coco_annotation,
     upload_dota_annotation,
